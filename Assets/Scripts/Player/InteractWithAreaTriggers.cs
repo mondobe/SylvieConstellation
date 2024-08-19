@@ -28,6 +28,7 @@ public class InteractWithAreaTriggers : MonoBehaviour
             if (areaIsNew)
             {
                 VisitedAreaManager.visitedAreas.Add(areaName);
+                SaveSystem.SaveGame(SaveSystem.Feature.VisitedAreas);
             }
 
             NotificationManager.Notification notif = areaIsNew

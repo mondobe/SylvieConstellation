@@ -27,7 +27,11 @@ public class InteractWithAutosaveZone : MonoBehaviour
         // Debug functionality for saving and loading
         if (Keyboard.current.digit9Key.wasPressedThisFrame)
         {
-            SaveSystem.SaveGame();
+            SaveSystem.SaveGame(
+                SaveSystem.Feature.SylviePosition,
+                SaveSystem.Feature.VisitedAreas,
+                SaveSystem.Feature.DialogueVariables
+            );
         }
         if (Keyboard.current.digit0Key.wasPressedThisFrame)
         {
@@ -62,7 +66,7 @@ public class InteractWithAutosaveZone : MonoBehaviour
     private void OnApplicationQuit()
     {
         // Save the game before quitting
-        SaveSystem.SaveGame();
+        // SaveSystem.SaveGame();
     }
 
     /// <summary>

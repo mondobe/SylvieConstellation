@@ -17,32 +17,70 @@ public class SaveSystem : Singleton<SaveSystem>
     [System.Serializable]
     public class Save
     {
+        public Feature[] features;
+
         public string pathName;
         public SerializableVector3 sylviePosition;
         public HashSet<string> visitedAreas;
     }
 
+    /// <summary>
+    /// The currently loaded game save. Used in <see cref="SaveGame(Feature[])"/>
+    /// to add features to the current save. Can be updated by calling
+    /// <see cref="LoadSave(Save)"/>
+    /// </summary>
+    public static Save loadedSave;
+
     public const string DUMMY_FILE_NAME = "save0";
+
+    public enum Feature
+    {
+        SylviePosition,
+        VisitedAreas,
+        DialogueVariables,
+    }
 
     void Awake()
     {
+        loadedSave = null;
         InitializeSingleton(gameObject);
     }
 
     /// <summary>
-    /// Creates a new save file based on the current conditions of the game.
-    /// Should only be called in the "World" section (TODO: check for that?)
+    /// Takes an existing save (or creates a new one), and saves the specified
+    /// features of the game.
     /// </summary>
+    /// Some parts of the game don't need to be saved all the time (e.g.
+    /// visited areas only need to be updated when a new area is unlocked), so
+    /// features are chosen as a list.
+    /// <param name="from">The existing save to add onto. If null, creates a
+    /// new save file.</param>
+    /// <param name="features">The various parts of the game to add to the
+    /// existing save.</param>
     /// <returns>A save file representing the state of the world</returns>
-    public static Save GenerateSave()
+    public static Save GenerateSave(Save from, params Feature[] features)
     {
-        GameObject sylvie = GameObject.FindWithTag("Player");
-        Save save = new()
+        Save save = from;
+        save ??= new()
         {
             pathName = DUMMY_FILE_NAME,
-            sylviePosition = sylvie.transform.position.ToSerializable(),
-            visitedAreas = VisitedAreaManager.visitedAreas,
         };
+        save.features = features;
+
+        foreach (Feature f in save.features)
+        {
+            switch (f)
+            {
+                case Feature.SylviePosition:
+                    GameObject sylvie = GameObject.FindWithTag("Player");
+                    save.sylviePosition = sylvie.transform.position.ToSerializable();
+                    break;
+
+                case Feature.VisitedAreas:
+                    save.visitedAreas = VisitedAreaManager.visitedAreas;
+                    break;
+            }
+        }
 
         return save;
     }
@@ -115,29 +153,48 @@ public class SaveSystem : Singleton<SaveSystem>
     /// <summary>
     /// Takes a given Save and transforms the state of the world to match it.
     /// </summary>
+    /// Updates the <see cref="loadedSave"/> value.
     /// <param name="save">The Save file to be loaded</param>
     public static void LoadSave(Save save)
     {
-        if (save == null) return;
+        if (save == null)
+        {
+            Debug.LogWarning("Tried to load a null save");
+            return;
+        }
 
-        GameObject sylvie = GameObject.FindWithTag("Player");
-        sylvie.transform.position = save.sylviePosition.ToVector3();
-        VisitedAreaManager.visitedAreas = save.visitedAreas;
+        foreach (Feature f in save.features)
+        {
+            switch (f)
+            {
+                case Feature.SylviePosition:
+                    GameObject sylvie = GameObject.FindWithTag("Player");
+                    sylvie.transform.position = save.sylviePosition.ToVector3();
+                    break;
+
+                case Feature.VisitedAreas:
+                    VisitedAreaManager.visitedAreas = save.visitedAreas;
+                    break;
+            }
+        }
+
+        loadedSave = save;
     }
 
     /// <summary>
-    /// Generates a new save file and saves the game.
+    /// Saves the specified features onto <see cref="loadedSave"/> (or creates
+    /// a new save) and writes the save to a file.
     /// </summary>
-    public static void SaveGame()
+    public static void SaveGame(params Feature[] features)
     {
-        Save save = GenerateSave();
+        Save save = GenerateSave(loadedSave, features);
         Task.Run(() => SaveToFile(save));
     }
 
     /// <summary>
     /// Loads the game from the save at the default file name.
     /// </summary>
-    /// NOTE: If the file does not exist, this will do nothing.
+    /// If the file does not exist, this will do nothing.
     public static void TryLoadGame()
     {
         LoadSave(LoadFromFile(DUMMY_FILE_NAME));
